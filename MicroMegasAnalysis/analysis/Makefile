@@ -19,6 +19,9 @@ convertCsvToHisto: convertCsvToHisto.cpp AndCommon.o
 drawHistos: drawHistos.cpp AndCommon.o 
 	$(CC) -Wall $(INCLUDES) -o drawHistos drawHistos.cpp AndCommon.o $(ROOTFLAG) $(EXTRALIBS)
 
+analyzeRate: analyzeRate.cpp AndCommon.o 
+	$(CC) -Wall $(INCLUDES) -o analyzeRate analyzeRate.cpp AndCommon.o $(ROOTFLAG) $(EXTRALIBS)
+
 
 
 AndCommon.o: ../../../ANDROMeDa/CommonTools/src/AndCommon.cc 
