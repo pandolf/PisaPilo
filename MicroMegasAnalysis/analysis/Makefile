@@ -16,6 +16,9 @@ EXTRALIBS := -L$(ROOTSYS)/lib -lGenVector -lMinuit -lRooFitCore -lRooFit #-L$(RO
 convertCsvToHisto: convertCsvToHisto.cpp AndCommon.o 
 	$(CC) -Wall $(INCLUDES) -o convertCsvToHisto convertCsvToHisto.cpp AndCommon.o $(ROOTFLAG) $(EXTRALIBS)
 
+drawHistos: drawHistos.cpp AndCommon.o 
+	$(CC) -Wall $(INCLUDES) -o drawHistos drawHistos.cpp AndCommon.o $(ROOTFLAG) $(EXTRALIBS)
+
 
 
 AndCommon.o: ../../../ANDROMeDa/CommonTools/src/AndCommon.cc 
