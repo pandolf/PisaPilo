@@ -117,7 +117,9 @@ int main( int argc, char* argv[] ) {
   gr_grap->Draw("P same");
 
   TLegend* legend = new TLegend( 0.6, 0.4, 0.9, 0.55 );
-  legend->SetFillStyle(0);
+  legend->SetFillColor(0);
+  legend->SetBorderSize(0);
+  legend->SetFillStyle(3003);
   legend->SetTextSize(0.03);
   legend->AddEntry( gr_grap, Form("Graphene run %d", grap_run), "P" );
   legend->AddEntry( gr_hole, Form("Hole runs %d and %d", hole_run_before, hole_run_after), "P" );
