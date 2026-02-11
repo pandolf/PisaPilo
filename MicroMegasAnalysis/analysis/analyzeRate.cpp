@@ -8,6 +8,7 @@
 #include "TH2D.h"
 #include "TH1D.h"
 #include "TMath.h"
+#include "TF1.h"
 #include "TFile.h"
 #include "TLegend.h"
 
@@ -30,7 +31,7 @@ struct RunData {
 
 std::map< int, RunData > getRunMap( const std::string& rundatafile );
 void findHoleRuns( const std::map< int, RunData >& run_map, RunData& rd, int& found_before, int& found_after );
-float getTimeSeconds( int h, int m );
+float getTimeSeconds( int h, int m, int s=0 );
 void addPoints( TGraphErrors* graph, const std::string& fileName, float tzero, int h_i, int m_i, int h_f, int m_f );
 
 
@@ -83,7 +84,7 @@ int main( int argc, char* argv[] ) {
   TCanvas* c1 = new TCanvas( "c1", "", 600, 600);
   c1->cd();
 
-  TH2D* h2_axes = new TH2D( "axes", "", 10, xmin, xmax, 10, 0., 300. );
+  TH2D* h2_axes = new TH2D( "axes", "", 10, xmin, xmax, 10, 0., 330. );
   h2_axes->SetXTitle( "t (s)" );
   h2_axes->SetYTitle( "Rate (Hz)" );
   h2_axes->Draw("same");
@@ -92,13 +93,36 @@ int main( int argc, char* argv[] ) {
 
   TGraphErrors* gr_hole = new TGraphErrors(0);
   addPoints( gr_hole, file_rate, tzero, rd_hole_before.h_i, rd_hole_before.m_i, rd_hole_before.h_f, rd_hole_before.m_f );
+  addPoints( gr_hole, file_rate, tzero, rd_hole_after .h_i, rd_hole_after .m_i, rd_hole_after .h_f, rd_hole_after .m_f );
 
   gr_hole->SetMarkerSize( 1.3 );
   gr_hole->SetMarkerStyle( 20 );
   gr_hole->SetMarkerColor( 46 );
   gr_hole->SetLineColor  ( 46 );
 
+  TF1* f1_line = new TF1( "line", "[0] + [1]*x", xmin, xmax );
+  f1_line->SetLineColor( 46 );
+  gr_hole->Fit( f1_line, "QR" );
+
   gr_hole->Draw("P same");
+
+  TGraphErrors* gr_grap = new TGraphErrors(0);
+  addPoints( gr_grap, file_rate, tzero, rd_grap.h_i, rd_grap.m_i, rd_grap.h_f, rd_grap.m_f );
+
+  gr_grap->SetMarkerSize( 1.3 );
+  gr_grap->SetMarkerStyle( 20 );
+  gr_grap->SetMarkerColor( 38 );
+  gr_grap->SetLineColor  ( 38 );
+
+  gr_grap->Draw("P same");
+
+  TLegend* legend = new TLegend( 0.6, 0.4, 0.9, 0.55 );
+  legend->SetFillStyle(0);
+  legend->SetTextSize(0.03);
+  legend->AddEntry( gr_grap, Form("Graphene run %d", grap_run), "P" );
+  legend->AddEntry( gr_hole, Form("Hole runs %d and %d", hole_run_before, hole_run_after), "P" );
+  legend->AddEntry( f1_line, "Linear fit", "L" );
+  legend->Draw("same");
 
   c1->SaveAs( Form("rate_run%d.pdf", grap_run) );
 
@@ -210,11 +234,11 @@ void findHoleRuns( const std::map< int, RunData >& run_map, RunData& rd, int& fo
 
 
 
-float getTimeSeconds( int h, int m ) {
+float getTimeSeconds( int h, int m, int s ) {
 
-  float s = 3600.*((float)h) + 60.*((float)m);
+  float t = 3600.*((float)h) + 60.*((float)m) + ((float)s);
 
-  return s;
+  return t;
 
 }
 
@@ -249,11 +273,12 @@ void addPoints( TGraphErrors* graph, const std::string& fileName, float tzero, i
         std::vector<std::string> time = AndCommon::splitString( AndCommon::splitString( dateTime, " " )[1], ":" );
         int h = atoi(time[0].c_str());
         int m = atoi(time[1].c_str());
-        float this_t = getTimeSeconds( h, m ) - tzero;
+        int s = atoi(time[2].c_str());
+        float this_t = getTimeSeconds( h, m, s ) - tzero;
  
         float rate = atof(AndCommon::splitString( commaSplit[1], " ")[0].c_str());
 
-        if( this_t > t_i && this_t < t_f )
+        if( this_t > t_i + 60. && this_t < t_f - 30. )
           graph->SetPoint( graph->GetN(), this_t, rate );
 
       } // else line not 0 
