@@ -32,7 +32,8 @@ struct RunData {
 std::map< int, RunData > getRunMap( const std::string& rundatafile );
 void findHoleRuns( const std::map< int, RunData >& run_map, RunData& rd, int& found_before, int& found_after );
 float getTimeSeconds( int h, int m, int s=0 );
-void addPoints( TGraphErrors* graph, const std::string& fileName, float tzero, int h_i, int m_i, int h_f, int m_f );
+float get_sFrac( int run );
+void addPoints( TGraphErrors* graph, const std::string& fileName, float tzero, int h_i, int m_i, int h_f, int m_f, float bg_frac = 1. );
 
 
 
@@ -55,7 +56,13 @@ int main( int argc, char* argv[] ) {
   std::map< int, RunData > map_runs;
   map_runs = getRunMap( "./data/runData.dat" );
 
+  std::cout << std::endl << std::endl;
+  std::cout << "-> Staring analysis of run " << grap_run << std::endl;
+
   RunData rd_grap = map_runs[grap_run];
+  float sFrac_grap  = get_sFrac( grap_run  );
+  std::cout << "-> BG frac graphene : " << sFrac_grap  << std::endl;
+  std::cout << std::endl;
 
   int hole_run_before(-1);
   int hole_run_after (-1);
@@ -76,6 +83,13 @@ int main( int argc, char* argv[] ) {
   RunData rd_hole_before = map_runs[hole_run_before];
   RunData rd_hole_after  = map_runs[hole_run_after ];
 
+  float sFrac_before = get_sFrac( hole_run_before );
+  float sFrac_after  = get_sFrac( hole_run_after  );
+
+  std::cout << "-> BG frac before: " << sFrac_before << std::endl;
+  std::cout << "-> BG frac after : " << sFrac_after  << std::endl;
+  std::cout << std::endl;
+
   float tzero = getTimeSeconds(rd_hole_before.h_i, rd_hole_before.m_i);
 
   float xmin = 0.;
@@ -92,8 +106,8 @@ int main( int argc, char* argv[] ) {
   std::string file_rate = "data/MM_trigger_rate_10m_data_2026_02_05_15_58_05.csv";
 
   TGraphErrors* gr_hole = new TGraphErrors(0);
-  addPoints( gr_hole, file_rate, tzero, rd_hole_before.h_i, rd_hole_before.m_i, rd_hole_before.h_f, rd_hole_before.m_f );
-  addPoints( gr_hole, file_rate, tzero, rd_hole_after .h_i, rd_hole_after .m_i, rd_hole_after .h_f, rd_hole_after .m_f );
+  addPoints( gr_hole, file_rate, tzero, rd_hole_before.h_i, rd_hole_before.m_i, rd_hole_before.h_f, rd_hole_before.m_f, sFrac_before );
+  addPoints( gr_hole, file_rate, tzero, rd_hole_after .h_i, rd_hole_after .m_i, rd_hole_after .h_f, rd_hole_after .m_f, sFrac_after  );
 
   gr_hole->SetMarkerSize( 1.3 );
   gr_hole->SetMarkerStyle( 20 );
@@ -107,7 +121,7 @@ int main( int argc, char* argv[] ) {
   gr_hole->Draw("P same");
 
   TGraphErrors* gr_grap = new TGraphErrors(0);
-  addPoints( gr_grap, file_rate, tzero, rd_grap.h_i, rd_grap.m_i, rd_grap.h_f, rd_grap.m_f );
+  addPoints( gr_grap, file_rate, tzero, rd_grap.h_i, rd_grap.m_i, rd_grap.h_f, rd_grap.m_f, sFrac_grap );
 
   gr_grap->SetMarkerSize( 1.3 );
   gr_grap->SetMarkerStyle( 20 );
@@ -127,6 +141,32 @@ int main( int argc, char* argv[] ) {
   legend->Draw("same");
 
   c1->SaveAs( Form("rate_run%d.pdf", grap_run) );
+
+  TH1D* h1_effRaw = new TH1D( "effRaw", "", 100, 0., 1. );
+  TH1D* h1_transp = new TH1D( "transp", "", 100, 0., 1. );
+
+  float eff_geom = 0.433; // from Martina's thesis
+
+  for( unsigned iPoint=0; iPoint<gr_grap->GetN(); ++iPoint ) {
+
+    Double_t x, y;
+    gr_grap->GetPoint( iPoint, x, y );
+
+    float rate0 = f1_line->Eval( x );
+    float rate1 = y;
+    float eff_raw = rate1/rate0;
+    float transp = eff_raw/eff_geom;
+
+    h1_effRaw->Fill( eff_raw );
+    h1_transp->Fill( transp );
+
+  }
+   
+  std::cout << std::endl << std::endl;
+  std::cout << "-> Raw Efficiency: " << h1_effRaw->GetMean() << " +/- " << h1_effRaw->GetMeanError() << std::endl; 
+  std::cout << "-> Graphene Transparency: " << h1_transp->GetMean() << " +/- " << h1_transp->GetMeanError() << std::endl; 
+  std::cout << "(using eff_geom = " << eff_geom << ")" << std::endl;
+
 
   return 0;
 
@@ -245,7 +285,33 @@ float getTimeSeconds( int h, int m, int s ) {
 }
 
 
-void addPoints( TGraphErrors* graph, const std::string& fileName, float tzero, int h_i, int m_i, int h_f, int m_f ) {
+float get_sFrac( int run ) {
+
+  std::string fileName;
+  if( run < 10 ) fileName = (std::string)(Form("./data/Spectra/F4_Trace_0000%d.root", run) );
+  else           fileName = (std::string)(Form("./data/Spectra/F4_Trace_000%d.root" , run) );
+
+  TFile* file = TFile::Open( fileName.c_str() );
+  TH1D* histo = (TH1D*)file->Get("histo");
+
+  float bg_cut = 0.018;
+  
+  float s(0.), bg(0.);
+  for( unsigned iBin=1; iBin<histo->GetNbinsX(); ++iBin ) {
+    if( histo->GetBinCenter(iBin) < bg_cut ) bg += histo->GetBinContent( iBin );
+    else                                     s  += histo->GetBinContent( iBin );
+  }
+
+  float sFrac = s / ( s + bg );
+
+  return sFrac;
+
+}
+
+
+
+
+void addPoints( TGraphErrors* graph, const std::string& fileName, float tzero, int h_i, int m_i, int h_f, int m_f, float sFrac ) {
 
   float t_i = getTimeSeconds( h_i, m_i ) - tzero;
   float t_f = getTimeSeconds( h_f, m_f ) - tzero;
@@ -279,6 +345,7 @@ void addPoints( TGraphErrors* graph, const std::string& fileName, float tzero, i
         float this_t = getTimeSeconds( h, m, s ) - tzero;
  
         float rate = atof(AndCommon::splitString( commaSplit[1], " ")[0].c_str());
+        rate = sFrac*rate;
 
         if( this_t > t_i + 60. && this_t < t_f - 30. )
           graph->SetPoint( graph->GetN(), this_t, rate );
