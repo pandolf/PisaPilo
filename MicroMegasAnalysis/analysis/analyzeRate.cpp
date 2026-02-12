@@ -173,6 +173,8 @@ int main( int argc, char* argv[] ) {
 
 
 
+
+
 std::map< int, RunData > getRunMap( const std::string& rundatafile ) {
 
   std::map< int, RunData > map_runs;
@@ -183,46 +185,43 @@ std::map< int, RunData > getRunMap( const std::string& rundatafile ) {
 
   std::string line;
 
-  int iLine = 0;
-
   if( ifs.good() ) {
 
     while( getline(ifs,line) ) {
 
-      if( iLine == 0 ) {
+      TString line_tstr(line);
 
-        iLine += 1;
+      if( line_tstr.BeginsWith( "//" ) ) continue;
 
-      } else {
+      std::vector<std::string> data = AndCommon::splitString( line, "\t" );
 
-        float x;
-        float z;
-        std::string type; // "Hole", "Grap", "Cent"
-        float rate_i;
-        int hour_i; // hour start
-        int min_i; // min start
-        int hour_f; // hour end
-        int min_f; // min end
-        float rate_f;
-        int run_number;
+      float x = std::atof(data[0].c_str());
+      float z = std::atof(data[1].c_str());
+      std::string type = data[2]; // "Hole", "Grap", "Cent"
+      //float rate_i   = std::atof(data[3].c_str());
+      int hour_i     = std::atoi(data[4].c_str()); // hour start
+      int min_i      = std::atoi(data[5].c_str()); // min start
+      int hour_f     = std::atoi(data[6].c_str()); // hour end
+      int min_f      = std::atoi(data[7].c_str()); // min end
+      //float rate_f   = std::atof(data[8].c_str());
+      int run_number = std::atoi(data[9].c_str());
 
-        ifs >> x >> z >> type >> rate_i >> hour_i >> min_i >> hour_f >> min_f >> rate_f >> run_number;
+      RunData rd;
+      rd.x = x;
+      rd.z = z;
+      rd.type = type; // "Hole", "Grap", "Cent"
+      rd.h_i = hour_i; // hour start
+      rd.m_i = min_i; // min start
+      rd.h_f = hour_f; // hour end
+      rd.m_f = min_f; // min end
+      //rd.h_i run_number;
 
-        RunData rd;
-        rd.x = x;
-        rd.z = z;
-        rd.type = type; // "Hole", "Grap", "Cent"
-        rd.h_i = hour_i; // hour start
-        rd.m_i = min_i; // min start
-        rd.h_f = hour_f; // hour end
-        rd.m_f = min_f; // min end
-        //rd.h_i run_number;
-
+      if( run_number > 0 ) {
         map_runs[run_number] = rd;
+        std::cout << "-> Added " << type << " run: " << run_number << std::endl;
+      }
 
-      } // if iLine == 0
-
-    } // while get line
+    } // while
 
   } // if ifs good
 
@@ -356,13 +355,13 @@ void addPoints( TGraphErrors* graph, const std::string& fileName, float tzero, i
 
   if( ifs.good() ) {
 
-    while( getline(ifs,line) ) {
+      while( getline(ifs,line) ) {
 
-      if( iLine == 0 ) {
+        if( iLine == 0 ) {
 
-        iLine += 1;
+          iLine += 1;
 
-      } else {
+        } else {
 
         // format: 2026-02-05 12:04:55,25.86 Hz^M
 
@@ -380,7 +379,7 @@ void addPoints( TGraphErrors* graph, const std::string& fileName, float tzero, i
           graph->SetPoint( graph->GetN(), this_t, sFrac*rate );
         }
 
-      } // else line not 0 
+        } // else line not 0 
 
     } // while get line
 
