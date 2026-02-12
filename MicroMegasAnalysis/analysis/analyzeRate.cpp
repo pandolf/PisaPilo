@@ -9,6 +9,8 @@
 #include "TH1D.h"
 #include "TMath.h"
 #include "TF1.h"
+#include "TLine.h"
+#include "TPaveText.h"
 #include "TFile.h"
 #include "TLegend.h"
 
@@ -61,21 +63,12 @@ int main( int argc, char* argv[] ) {
 
   RunData rd_grap = map_runs[grap_run];
   float sFrac_grap  = get_sFrac( grap_run  );
-  std::cout << "-> BG frac graphene : " << sFrac_grap  << std::endl;
+  std::cout << "-> signal frac run " << grap_run << " : " << sFrac_grap  << std::endl;
   std::cout << std::endl;
 
   int hole_run_before(-1);
   int hole_run_after (-1);
   findHoleRuns( map_runs, rd_grap, hole_run_before, hole_run_after );
-
-  if( hole_run_before<0 ) {
-    std::cout << "hole_run_before: " << hole_run_before << std::endl;
-    exit(-1);
-  }
-  if( hole_run_after<0 ) {
-    std::cout << "hole_run_after: " << hole_run_after << std::endl;
-    exit(-1);
-  }
 
   std::cout << "hole_run_before: " << hole_run_before << std::endl;
   std::cout << "hole_run_after: " << hole_run_after << std::endl;
@@ -86,8 +79,8 @@ int main( int argc, char* argv[] ) {
   float sFrac_before = get_sFrac( hole_run_before );
   float sFrac_after  = get_sFrac( hole_run_after  );
 
-  std::cout << "-> BG frac before: " << sFrac_before << std::endl;
-  std::cout << "-> BG frac after : " << sFrac_after  << std::endl;
+  std::cout << "-> signal frac run before: " << sFrac_before << std::endl;
+  std::cout << "-> signal frac run after : " << sFrac_after  << std::endl;
   std::cout << std::endl;
 
   float tzero = getTimeSeconds(rd_hole_before.h_i, rd_hole_before.m_i);
@@ -103,7 +96,12 @@ int main( int argc, char* argv[] ) {
   h2_axes->SetYTitle( "Rate (Hz)" );
   h2_axes->Draw("same");
 
+
   std::string file_rate = "data/MM_trigger_rate_10m_data_2026_02_05_15_58_05.csv";
+
+  TGraphErrors* gr_grap = new TGraphErrors(0);
+  std::cout << std::endl;
+  addPoints( gr_grap, file_rate, tzero, rd_grap.h_i, rd_grap.m_i, rd_grap.h_f, rd_grap.m_f, sFrac_grap );
 
   TGraphErrors* gr_hole = new TGraphErrors(0);
   addPoints( gr_hole, file_rate, tzero, rd_hole_before.h_i, rd_hole_before.m_i, rd_hole_before.h_f, rd_hole_before.m_f, sFrac_before );
@@ -119,9 +117,6 @@ int main( int argc, char* argv[] ) {
   gr_hole->Fit( f1_line, "QR" );
 
   gr_hole->Draw("P same");
-
-  TGraphErrors* gr_grap = new TGraphErrors(0);
-  addPoints( gr_grap, file_rate, tzero, rd_grap.h_i, rd_grap.m_i, rd_grap.h_f, rd_grap.m_f, sFrac_grap );
 
   gr_grap->SetMarkerSize( 1.3 );
   gr_grap->SetMarkerStyle( 20 );
@@ -142,8 +137,9 @@ int main( int argc, char* argv[] ) {
 
   c1->SaveAs( Form("rate_run%d.pdf", grap_run) );
 
-  TH1D* h1_effRaw = new TH1D( "effRaw", "", 100, 0., 1. );
-  TH1D* h1_transp = new TH1D( "transp", "", 100, 0., 1. );
+  TH1D* h1_rateCorr = new TH1D( "rateCorr", "", 100, 0., 1000. );
+  TH1D* h1_effRaw   = new TH1D( "effRaw"  , "", 100, 0., 1. );
+  TH1D* h1_transp   = new TH1D( "transp"  , "", 100, 0., 1. );
 
   float eff_geom = 0.433; // from Martina's thesis
 
@@ -157,15 +153,18 @@ int main( int argc, char* argv[] ) {
     float eff_raw = rate1/rate0;
     float transp = eff_raw/eff_geom;
 
-    h1_effRaw->Fill( eff_raw );
-    h1_transp->Fill( transp );
+    h1_rateCorr->Fill( rate1 );
+    h1_effRaw  ->Fill( eff_raw );
+    h1_transp  ->Fill( transp );
 
   }
    
   std::cout << std::endl << std::endl;
-  std::cout << "-> Raw Efficiency: " << h1_effRaw->GetMean() << " +/- " << h1_effRaw->GetMeanError() << std::endl; 
-  std::cout << "-> Graphene Transparency: " << h1_transp->GetMean() << " +/- " << h1_transp->GetMeanError() << std::endl; 
+  std::cout << "-> Corrected Rate: "        << h1_rateCorr->GetMean() << " +/- " << h1_rateCorr->GetMeanError() << std::endl; 
+  std::cout << "-> Raw Efficiency: "        << h1_effRaw  ->GetMean() << " +/- " << h1_effRaw  ->GetMeanError() << std::endl; 
+  std::cout << "-> Graphene Transparency: " << h1_transp  ->GetMean() << " +/- " << h1_transp  ->GetMeanError() << std::endl; 
   std::cout << "(using eff_geom = " << eff_geom << ")" << std::endl;
+  std::cout << std::endl;
 
 
   return 0;
@@ -242,6 +241,8 @@ void findHoleRuns( const std::map< int, RunData >& run_map, RunData& rd, int& fo
 
   for( std::map<int, RunData>::const_iterator it = run_map.begin(); it != run_map.end(); it++) {
 
+    if( it->second.type != "Hole" ) continue;
+
     float this_t = getTimeSeconds( it->second.h_i, it->second.m_i );
     float this_deltat = fabs(this_t-t_grap);
 
@@ -304,6 +305,35 @@ float get_sFrac( int run ) {
 
   float sFrac = s / ( s + bg );
 
+
+  TCanvas* c2 = new TCanvas(Form("c2_run%d", run), "", 600, 600 );
+  c2->cd();
+
+  float ymax = 0.01;
+  TH2D* h2_axes = new TH2D( Form("axes_%d", run), "", 10, -0.1, 0.5, 10, 0., ymax );
+  h2_axes->SetYTitle( "Normalized to Unity" );
+  h2_axes->SetXTitle( "Amplitude (V)" );
+  h2_axes->Draw("");
+
+  histo->SetLineColor(46);
+  histo->SetFillColor(46);
+  histo->SetFillStyle(3004);
+  histo->DrawNormalized("same");
+
+  TLine* line_bg = new TLine( bg_cut, 0., bg_cut, ymax);
+  line_bg->Draw("same");
+  
+  TPaveText* label_sFrac = new TPaveText( 0.6, 0.75, 0.9, 0.9, "brNDC" );
+  label_sFrac->SetTextSize( 0.035 );
+  label_sFrac->SetFillColor( 0 );
+  label_sFrac->AddText( Form("Run %d", run) );
+  label_sFrac->AddText( Form("s / (s+b) = %.3f", sFrac) );
+  label_sFrac->Draw("same");
+  
+  gPad->RedrawAxis();
+
+  c2->SaveAs( Form("data/Spectra/histo_run%d.pdf", run) );
+
   return sFrac;
 
 }
@@ -345,10 +375,10 @@ void addPoints( TGraphErrors* graph, const std::string& fileName, float tzero, i
         float this_t = getTimeSeconds( h, m, s ) - tzero;
  
         float rate = atof(AndCommon::splitString( commaSplit[1], " ")[0].c_str());
-        rate = sFrac*rate;
 
-        if( this_t > t_i + 60. && this_t < t_f - 30. )
-          graph->SetPoint( graph->GetN(), this_t, rate );
+        if( this_t > t_i + 60. && this_t < t_f - 30. ) {
+          graph->SetPoint( graph->GetN(), this_t, sFrac*rate );
+        }
 
       } // else line not 0 
 
