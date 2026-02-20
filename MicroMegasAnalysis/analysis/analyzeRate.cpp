@@ -35,7 +35,7 @@ std::map< int, RunData > getRunMap( const std::string& rundatafile );
 void findHoleRuns( const std::map< int, RunData >& run_map, RunData& rd, int& found_before, int& found_after );
 float getTimeSeconds( int h, int m, int s=0 );
 float get_sFrac( int run );
-void addPoints( TGraphErrors* graph, const std::string& fileName, float tzero, int h_i, int m_i, int h_f, int m_f, float bg_frac = 1. );
+void addPoints( TGraphErrors* graph, const std::string& fileName, float tzero, int h_i, int m_i, int h_f, int m_f, float bg_frac = 1., float bg_rate = 0. );
 
 
 
@@ -48,6 +48,8 @@ int main( int argc, char* argv[] ) {
     exit(1);
 
   }
+
+  std::string file_rate = "data/MM_trigger_rate_10m_data_2026_02_05_15_58_05.csv";
 
   AndCommon::setStyle();
 
@@ -83,6 +85,21 @@ int main( int argc, char* argv[] ) {
   std::cout << "-> signal frac run after : " << sFrac_after  << std::endl;
   std::cout << std::endl;
 
+  // use hole run to compute cosmic BG rate
+  int run_cosmics = 22;
+  float sFrac_cosmics  = get_sFrac(run_cosmics);
+  RunData rd_cosmics = map_runs[run_cosmics];
+  TGraphErrors* gr_cosmics = new TGraphErrors(0);
+  addPoints( gr_cosmics, file_rate, 0., rd_cosmics.h_i, rd_cosmics.m_i, rd_cosmics.h_f, rd_cosmics.m_f, sFrac_cosmics );
+  TH1D* h1_rate_cosmics = new TH1D( "rate_comics", "", 10, 0., 1000. );
+  for( unsigned iPoint=0; iPoint<gr_cosmics->GetN(); ++iPoint ) {
+    Double_t x, y;
+    gr_cosmics->GetPoint( iPoint, x, y );
+    h1_rate_cosmics->Fill(y);
+  }
+  float rate_cosmics = h1_rate_cosmics->GetMean();
+  std::cout << std::endl << "-> Cosmics rate: " << rate_cosmics << " Hz" << std::endl;
+
   float tzero = getTimeSeconds(rd_hole_before.h_i, rd_hole_before.m_i);
 
   float xmin = 0.;
@@ -97,15 +114,13 @@ int main( int argc, char* argv[] ) {
   h2_axes->Draw("same");
 
 
-  std::string file_rate = "data/MM_trigger_rate_10m_data_2026_02_05_15_58_05.csv";
-
   TGraphErrors* gr_grap = new TGraphErrors(0);
   std::cout << std::endl;
-  addPoints( gr_grap, file_rate, tzero, rd_grap.h_i, rd_grap.m_i, rd_grap.h_f, rd_grap.m_f, sFrac_grap );
+  addPoints( gr_grap, file_rate, tzero, rd_grap.h_i, rd_grap.m_i, rd_grap.h_f, rd_grap.m_f, sFrac_grap, rate_cosmics );
 
   TGraphErrors* gr_hole = new TGraphErrors(0);
-  addPoints( gr_hole, file_rate, tzero, rd_hole_before.h_i, rd_hole_before.m_i, rd_hole_before.h_f, rd_hole_before.m_f, sFrac_before );
-  addPoints( gr_hole, file_rate, tzero, rd_hole_after .h_i, rd_hole_after .m_i, rd_hole_after .h_f, rd_hole_after .m_f, sFrac_after  );
+  addPoints( gr_hole, file_rate, tzero, rd_hole_before.h_i, rd_hole_before.m_i, rd_hole_before.h_f, rd_hole_before.m_f, sFrac_before, rate_cosmics );
+  addPoints( gr_hole, file_rate, tzero, rd_hole_after .h_i, rd_hole_after .m_i, rd_hole_after .h_f, rd_hole_after .m_f, sFrac_after , rate_cosmics );
 
   gr_hole->SetMarkerSize( 1.3 );
   gr_hole->SetMarkerStyle( 20 );
@@ -142,6 +157,7 @@ int main( int argc, char* argv[] ) {
   TH1D* h1_transp   = new TH1D( "transp"  , "", 100, 0., 1. );
 
   float eff_geom = 0.433; // from Martina's thesis
+  float eff_slit = 1.; // 0.245; // slit area fraction
 
   for( unsigned iPoint=0; iPoint<gr_grap->GetN(); ++iPoint ) {
 
@@ -151,7 +167,7 @@ int main( int argc, char* argv[] ) {
     float rate0 = f1_line->Eval( x );
     float rate1 = y;
     float eff_raw = rate1/rate0;
-    float transp = eff_raw/eff_geom;
+    float transp = eff_raw/(eff_geom*eff_slit);
 
     h1_rateCorr->Fill( rate1 );
     h1_effRaw  ->Fill( eff_raw );
@@ -340,7 +356,7 @@ float get_sFrac( int run ) {
 
 
 
-void addPoints( TGraphErrors* graph, const std::string& fileName, float tzero, int h_i, int m_i, int h_f, int m_f, float sFrac ) {
+void addPoints( TGraphErrors* graph, const std::string& fileName, float tzero, int h_i, int m_i, int h_f, int m_f, float sFrac, float rate_bg ) {
 
   float t_i = getTimeSeconds( h_i, m_i ) - tzero;
   float t_f = getTimeSeconds( h_f, m_f ) - tzero;
@@ -376,7 +392,7 @@ void addPoints( TGraphErrors* graph, const std::string& fileName, float tzero, i
         float rate = atof(AndCommon::splitString( commaSplit[1], " ")[0].c_str());
 
         if( this_t > t_i + 60. && this_t < t_f - 30. ) {
-          graph->SetPoint( graph->GetN(), this_t, sFrac*rate );
+          graph->SetPoint( graph->GetN(), this_t, sFrac*rate - rate_bg );
         }
 
         } // else line not 0 
