@@ -34,7 +34,7 @@ struct RunData {
 std::map< int, RunData > getRunMap( const std::string& rundatafile );
 void findHoleRuns( const std::map< int, RunData >& run_map, RunData& rd, int& found_before, int& found_after );
 float getTimeSeconds( int h, int m, int s=0 );
-float get_sFrac( int run );
+float get_sFrac( const std::string& dataset, int run );
 void addPoints( TGraphErrors* graph, const std::string& fileName, float tzero, int h_i, int m_i, int h_f, int m_f, float bg_frac = 1., float bg_rate = 0. );
 
 
@@ -49,7 +49,8 @@ int main( int argc, char* argv[] ) {
 
   }
 
-  std::string file_rate = "data/MM_trigger_rate_10m_data_2026_02_05_15_58_05.csv";
+  std::string dataset = "20260205";
+  std::string file_rate = "data/" + dataset + "/MM_trigger_rate_10m_data_2026_02_05_15_58_05.csv";
 
   AndCommon::setStyle();
 
@@ -58,13 +59,13 @@ int main( int argc, char* argv[] ) {
   //int hole_run_after ( atoi(argv[3]) );
 
   std::map< int, RunData > map_runs;
-  map_runs = getRunMap( "./data/runData.dat" );
+  map_runs = getRunMap( "./data/"+dataset+"/runData.dat" );
 
   std::cout << std::endl << std::endl;
   std::cout << "-> Staring analysis of run " << grap_run << std::endl;
 
   RunData rd_grap = map_runs[grap_run];
-  float sFrac_grap  = get_sFrac( grap_run  );
+  float sFrac_grap  = get_sFrac( dataset, grap_run  );
   std::cout << "-> signal frac run " << grap_run << " : " << sFrac_grap  << std::endl;
   std::cout << std::endl;
 
@@ -78,8 +79,8 @@ int main( int argc, char* argv[] ) {
   RunData rd_hole_before = map_runs[hole_run_before];
   RunData rd_hole_after  = map_runs[hole_run_after ];
 
-  float sFrac_before = get_sFrac( hole_run_before );
-  float sFrac_after  = get_sFrac( hole_run_after  );
+  float sFrac_before = get_sFrac( dataset, hole_run_before );
+  float sFrac_after  = get_sFrac( dataset, hole_run_after  );
 
   std::cout << "-> signal frac run before: " << sFrac_before << std::endl;
   std::cout << "-> signal frac run after : " << sFrac_after  << std::endl;
@@ -87,7 +88,7 @@ int main( int argc, char* argv[] ) {
 
   // use hole run to compute cosmic BG rate
   int run_cosmics = 22;
-  float sFrac_cosmics  = get_sFrac(run_cosmics);
+  float sFrac_cosmics  = get_sFrac(dataset, run_cosmics);
   RunData rd_cosmics = map_runs[run_cosmics];
   TGraphErrors* gr_cosmics = new TGraphErrors(0);
   addPoints( gr_cosmics, file_rate, 0., rd_cosmics.h_i, rd_cosmics.m_i, rd_cosmics.h_f, rd_cosmics.m_f, sFrac_cosmics );
@@ -150,7 +151,7 @@ int main( int argc, char* argv[] ) {
   legend->AddEntry( f1_line, "Linear fit", "L" );
   legend->Draw("same");
 
-  c1->SaveAs( Form("rate_run%d.pdf", grap_run) );
+  c1->SaveAs( Form("data/%s/rate_run%d.pdf", dataset.c_str(), grap_run) );
 
   TH1D* h1_rateCorr = new TH1D( "rateCorr", "", 100, 0., 1000. );
   TH1D* h1_effRaw   = new TH1D( "effRaw"  , "", 100, 0., 1. );
@@ -301,11 +302,11 @@ float getTimeSeconds( int h, int m, int s ) {
 }
 
 
-float get_sFrac( int run ) {
+float get_sFrac( const std::string& dataset, int run ) {
 
   std::string fileName;
-  if( run < 10 ) fileName = (std::string)(Form("./data/Spectra/F4_Trace_0000%d.root", run) );
-  else           fileName = (std::string)(Form("./data/Spectra/F4_Trace_000%d.root" , run) );
+  if( run < 10 ) fileName = (std::string)(Form("./data/%s/Spectra/F4_Trace_0000%d.root", dataset.c_str(), run) );
+  else           fileName = (std::string)(Form("./data/%s/Spectra/F4_Trace_000%d.root" , dataset.c_str(), run) );
 
   TFile* file = TFile::Open( fileName.c_str() );
   TH1D* histo = (TH1D*)file->Get("histo");
@@ -347,7 +348,7 @@ float get_sFrac( int run ) {
   
   gPad->RedrawAxis();
 
-  c2->SaveAs( Form("data/Spectra/histo_run%d.pdf", run) );
+  c2->SaveAs( Form("data/%s/Spectra/histo_run%d.pdf", dataset.c_str(), run) );
 
   return sFrac;
 
