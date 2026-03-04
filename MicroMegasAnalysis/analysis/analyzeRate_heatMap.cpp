@@ -55,7 +55,7 @@ int main( int argc, char* argv[] ) {
   AndCommon::setStyle();
 
   int hole_run = 12;
-  int wall_run = 1;
+  int cosmics_run = 1;
 
   std::vector<int> grap_runs;
   grap_runs.push_back( 3);
@@ -109,12 +109,9 @@ int main( int argc, char* argv[] ) {
   }
 
 
-  float sFrac_hole    = get_sFrac (dataset, hole_run, bg_cut);
-  float sFrac_cosmics = get_sFrac (dataset, wall_run, bg_cut);
+  float sFrac_cosmics = get_sFrac (dataset, cosmics_run, bg_cut);
 
-  RunData rd_cosmics = map_runs[wall_run];
-  RunData rd_hole = map_runs[hole_run];
-
+  RunData rd_cosmics = map_runs[cosmics_run];
   TGraphErrors* gr_cosmics = new TGraphErrors(0);
   addPoints( gr_cosmics, file_rate, 0., rd_cosmics.h_i, rd_cosmics.m_i, rd_cosmics.h_f, rd_cosmics.m_f, sFrac_cosmics );
   TH1D* h1_rate_cosmics = new TH1D( "rate_comics", "", 10, 0., 1000. );
@@ -126,7 +123,26 @@ int main( int argc, char* argv[] ) {
   float rate_cosmics = h1_rate_cosmics->GetMean();
   std::cout << std::endl << "-> Cosmics rate: " << rate_cosmics << " Hz" << std::endl;
 
+
+
+  float sFrac_hole = get_sFrac (dataset, hole_run, bg_cut);
+  RunData rd_hole = map_runs[hole_run];
+
   float tzero = getTimeSeconds(rd_hole.h_i, rd_hole.m_i);
+
+  TGraphErrors* gr_hole = new TGraphErrors(0);
+  addPoints( gr_hole, file_rate, tzero, rd_hole.h_i, rd_hole.m_i, rd_hole.h_f, rd_hole.m_f, sFrac_hole, rate_cosmics );
+  TH1D* h1_rate_hole = new TH1D( "rate_comics", "", 10, 0., 1000. );
+  for( unsigned iPoint=0; iPoint<gr_hole->GetN(); ++iPoint ) {
+    Double_t x, y;
+    gr_hole->GetPoint( iPoint, x, y );
+    h1_rate_hole->Fill(y);
+  }
+  float rate_hole = h1_rate_hole->GetMean();
+  std::cout << std::endl << "-> Hole rate: " << rate_hole << " Hz" << std::endl;
+
+
+
 
   float xmin = 0.;
   float xmax = getTimeSeconds(rd_grap[rd_grap.size()-1].h_f, rd_grap[rd_grap.size()-1].m_f) - tzero;
@@ -143,9 +159,6 @@ int main( int argc, char* argv[] ) {
   TGraphErrors* gr_grap = new TGraphErrors(0);
   for( unsigned i=0; i<rd_grap.size(); ++i ) 
     addPoints( gr_grap, file_rate, tzero, rd_grap[i].h_i, rd_grap[i].m_i, rd_grap[i].h_f, rd_grap[i].m_f, sFrac_grap[i], rate_cosmics );
-
-  TGraphErrors* gr_hole = new TGraphErrors(0);
-  addPoints( gr_hole, file_rate, tzero, rd_hole.h_i, rd_hole.m_i, rd_hole.h_f, rd_hole.m_f, sFrac_hole, rate_cosmics );
 
   gr_hole->SetMarkerSize( 1.3 );
   gr_hole->SetMarkerStyle( 20 );
@@ -172,36 +185,70 @@ int main( int argc, char* argv[] ) {
 
   c1->SaveAs( Form("data/%s/rate_heatmap.pdf", dataset.c_str()) );
 
-  TH1D* h1_rateCorr = new TH1D( "rateCorr", "", 100, 0., 1000. );
-  TH1D* h1_effRaw   = new TH1D( "effRaw"  , "", 100, 0., 1. );
-  TH1D* h1_transp   = new TH1D( "transp"  , "", 100, 0., 1. );
+  std::vector<TH1D*> vh1_rateCorr;
+  std::vector<TH1D*> vh1_effRaw  ;
+  std::vector<TH1D*> vh1_transp  ;
+
+  for( unsigned i=0; i<grap_runs.size(); ++i ) {
+
+    TH1D* h1_rateCorr = new TH1D( Form("rateCorr_%d", grap_runs[i]), "", 100, 0., 1000. );
+    TH1D* h1_effRaw   = new TH1D( Form("effRaw_%d"  , grap_runs[i]), "", 100, 0., 1.    );
+    TH1D* h1_transp   = new TH1D( Form("transp_%d"  , grap_runs[i]), "", 100, 0., 1.    );
+
+    vh1_rateCorr.push_back( h1_rateCorr );
+    vh1_effRaw.push_back( h1_effRaw );
+    vh1_transp.push_back( h1_transp );
+
+  }
 
   float eff_geom = 0.433; // from Martina's thesis
   float eff_slit = 1.; // 0.245; // slit area fraction
 
-  //for( unsigned iPoint=0; iPoint<gr_grap->GetN(); ++iPoint ) {
+  for( unsigned iPoint=0; iPoint<gr_grap->GetN(); ++iPoint ) {
 
-  //  Double_t x, y;
-  //  gr_grap->GetPoint( iPoint, x, y );
+    Double_t x, y;
+    gr_grap->GetPoint( iPoint, x, y );
 
-  //  float rate0 = f1_line->Eval( x );
-  //  float rate1 = y;
-  //  float eff_raw = rate1/rate0;
-  //  float transp = eff_raw/(eff_geom*eff_slit);
+    float time = tzero + x;
 
-  //  h1_rateCorr->Fill( rate1 );
-  //  h1_effRaw  ->Fill( eff_raw );
-  //  h1_transp  ->Fill( transp );
+    int this_grap_run = -1;
+    for( unsigned i=0; i<grap_runs.size(); ++i ) {
+      if( time > getTimeSeconds( rd_grap[i].h_i, rd_grap[i].m_i) 
+       && time < getTimeSeconds( rd_grap[i].h_f, rd_grap[i].m_f) ) {
+        this_grap_run = i;
+      } // if
+    } // for
+    
+    if( this_grap_run >= 0 ) {
+      float eff_raw = y/rate_hole;
+      float transp = eff_raw/(eff_geom*eff_slit);
+      vh1_rateCorr[this_grap_run]->Fill( y );
+      vh1_effRaw  [this_grap_run]->Fill( eff_raw );
+      vh1_transp  [this_grap_run]->Fill( transp );
+    }
 
-  //}
-  // 
-  //std::cout << std::endl << std::endl;
-  //std::cout << "-> Corrected Rate: "        << h1_rateCorr->GetMean() << " +/- " << h1_rateCorr->GetMeanError() << std::endl; 
-  //std::cout << "-> Raw Efficiency: "        << h1_effRaw  ->GetMean() << " +/- " << h1_effRaw  ->GetMeanError() << std::endl; 
-  //std::cout << "-> Graphene Transparency: " << h1_transp  ->GetMean() << " +/- " << h1_transp  ->GetMeanError() << std::endl; 
-  //std::cout << "(using eff_geom = " << eff_geom << ")" << std::endl;
-  //std::cout << std::endl;
+  }
 
+
+  TCanvas* c2 = new TCanvas( "c2", "", 600, 600 );
+  c2->cd();
+
+  TH2D* h2_heatMap = new TH2D( "heatMap", "", 40, -10.5, -6.5, 20, -10.5, -8.5 );
+  h2_heatMap->SetXTitle( "x position [cm]" );
+  h2_heatMap->SetYTitle( "z position [cm]" );
+
+  for( unsigned i=0; i<grap_runs.size(); ++i ) {
+    
+    int binx = h2_heatMap->GetXaxis()->FindBin( rd_grap[i].x );
+    int biny = h2_heatMap->GetYaxis()->FindBin( rd_grap[i].z );
+
+    h2_heatMap->SetBinContent( binx, biny, vh1_transp[i]->GetMean() );
+
+  }
+
+  h2_heatMap->Draw();
+
+  c2->SaveAs( Form("./data/%s/transp_heatMap.pdf", dataset.c_str()) );
 
   return 0;
 
