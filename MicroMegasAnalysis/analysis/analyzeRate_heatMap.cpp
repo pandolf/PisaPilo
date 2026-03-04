@@ -61,33 +61,33 @@ int main( int argc, char* argv[] ) {
   grap_runs.push_back( 3);
   grap_runs.push_back( 4);
   grap_runs.push_back( 5);
-  //grap_runs.push_back( 6);
-  //grap_runs.push_back( 7);
-  //grap_runs.push_back( 8);
-  //grap_runs.push_back( 9);
-  //grap_runs.push_back(10);
-  //grap_runs.push_back(11);
-  //grap_runs.push_back(13);
-  //grap_runs.push_back(15);
-  //grap_runs.push_back(16);
-  //grap_runs.push_back(17);
-  //grap_runs.push_back(18);
-  //grap_runs.push_back(19);
-  //grap_runs.push_back(20);
-  //grap_runs.push_back(21);
-  //grap_runs.push_back(22);
-  //grap_runs.push_back(23);
-  //grap_runs.push_back(25);
-  //grap_runs.push_back(26);
-  //grap_runs.push_back(27);
-  //grap_runs.push_back(28);
-  //grap_runs.push_back(29);
-  //grap_runs.push_back(30);
-  //grap_runs.push_back(31);
-  //grap_runs.push_back(33);
-  //grap_runs.push_back(34);
-  //grap_runs.push_back(37);
-  //grap_runs.push_back(39);
+  grap_runs.push_back( 6);
+  grap_runs.push_back( 7);
+  grap_runs.push_back( 8);
+  grap_runs.push_back( 9);
+  grap_runs.push_back(10);
+  grap_runs.push_back(11);
+  grap_runs.push_back(13);
+  grap_runs.push_back(15);
+  grap_runs.push_back(16);
+  grap_runs.push_back(17);
+  grap_runs.push_back(18);
+  grap_runs.push_back(19);
+  grap_runs.push_back(20);
+  grap_runs.push_back(21);
+  grap_runs.push_back(22);
+  grap_runs.push_back(23);
+  grap_runs.push_back(25);
+  grap_runs.push_back(26);
+  grap_runs.push_back(27);
+  grap_runs.push_back(28);
+  grap_runs.push_back(29);
+  grap_runs.push_back(30);
+  grap_runs.push_back(31);
+  grap_runs.push_back(33);
+  grap_runs.push_back(34);
+  grap_runs.push_back(37);
+  grap_runs.push_back(39);
   //grap_runs.push_back(40);
   //grap_runs.push_back(41);
 
@@ -230,23 +230,38 @@ int main( int argc, char* argv[] ) {
   }
 
 
+  gStyle->SetPalette( kInvertedDarkBodyRadiator );
+  gStyle->SetPadTopMargin(0.115);
+  gStyle->SetPadRightMargin(0.15);
+  gStyle->SetPadBottomMargin(0.15);
+  gStyle->SetPadLeftMargin(0.15);
+
   TCanvas* c2 = new TCanvas( "c2", "", 600, 600 );
   c2->cd();
 
-  TH2D* h2_heatMap = new TH2D( "heatMap", "", 40, -10.5, -6.5, 20, -10.5, -8.5 );
+  TH2D* h2_heatMap = new TH2D( "heatMap", "", 25, -9.05, -6.55, 25, -10.35, -7.85 );
+  //TH2D* h2_heatMap = new TH2D( "heatMap", "", 25, -9.05, -6.55, 9, -9.55, -8.65 );
   h2_heatMap->SetXTitle( "x position [cm]" );
   h2_heatMap->SetYTitle( "z position [cm]" );
 
+  std::cout << std::endl;
   for( unsigned i=0; i<grap_runs.size(); ++i ) {
     
     int binx = h2_heatMap->GetXaxis()->FindBin( rd_grap[i].x );
     int biny = h2_heatMap->GetYaxis()->FindBin( rd_grap[i].z );
 
-    h2_heatMap->SetBinContent( binx, biny, vh1_transp[i]->GetMean() );
+    float transp     = vh1_transp[i]->GetMean();
+    float transp_err = vh1_transp[i]->GetMeanError();
+
+    h2_heatMap->SetBinContent( binx, biny, transp );
+
+    std::cout << "-> Run " << i << " x: " << rd_grap[i].x << " z: " << rd_grap[i].z << " Graphene transparency: " << transp << " +/- " << transp_err << std::endl;
 
   }
 
-  h2_heatMap->Draw();
+  std::cout << std::endl;
+
+  h2_heatMap->Draw("colz");
 
   c2->SaveAs( Form("./data/%s/transp_heatMap.pdf", dataset.c_str()) );
 
