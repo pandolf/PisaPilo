@@ -22,6 +22,9 @@ drawHistos: drawHistos.cpp AndCommon.o
 analyzeRate: analyzeRate.cpp AndCommon.o 
 	$(CC) -Wall $(INCLUDES) -o analyzeRate analyzeRate.cpp AndCommon.o $(ROOTFLAG) $(EXTRALIBS)
 
+analyzeRate_heatMap: analyzeRate_heatMap.cpp AndCommon.o 
+	$(CC) -Wall $(INCLUDES) -o analyzeRate_heatMap analyzeRate_heatMap.cpp AndCommon.o $(ROOTFLAG) $(EXTRALIBS)
+
 
 
 AndCommon.o: ../../../ANDROMeDa/CommonTools/src/AndCommon.cc 
