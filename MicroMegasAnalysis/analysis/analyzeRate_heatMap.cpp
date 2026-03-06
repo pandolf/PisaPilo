@@ -25,7 +25,7 @@ struct RunData {
   int m_i; // min start
   int h_f; // hour end
   int m_f; // min end
-  //int run_number;
+  int run_number;
 
 };
 
@@ -84,12 +84,10 @@ int main( int argc, char* argv[] ) {
   grap_runs.push_back(29);
   grap_runs.push_back(30);
   grap_runs.push_back(31);
-  grap_runs.push_back(33);
-  grap_runs.push_back(34);
-  grap_runs.push_back(37);
-  grap_runs.push_back(39);
-  //grap_runs.push_back(40);
-  //grap_runs.push_back(41);
+  //grap_runs.push_back(33);
+  //grap_runs.push_back(34);
+  //grap_runs.push_back(37);
+  //grap_runs.push_back(39);
 
   std::map< int, RunData > map_runs;
   map_runs = getRunMap( "./data/"+dataset+"/runData.dat" );
@@ -128,9 +126,11 @@ int main( int argc, char* argv[] ) {
   float sFrac_hole = get_sFrac (dataset, hole_run, bg_cut);
   RunData rd_hole = map_runs[hole_run];
 
-  float tzero = getTimeSeconds(rd_hole.h_i, rd_hole.m_i);
+  float tzero = getTimeSeconds(rd_grap[0].h_i, rd_grap[0].m_i);
+  //float tzero = getTimeSeconds(rd_hole.h_i, rd_hole.m_i);
 
   TGraphErrors* gr_hole = new TGraphErrors(0);
+  gr_hole->SetName( "hole" );
   addPoints( gr_hole, file_rate, tzero, rd_hole.h_i, rd_hole.m_i, rd_hole.h_f, rd_hole.m_f, sFrac_hole, rate_cosmics );
   TH1D* h1_rate_hole = new TH1D( "rate_comics", "", 10, 0., 1000. );
   for( unsigned iPoint=0; iPoint<gr_hole->GetN(); ++iPoint ) {
@@ -150,13 +150,14 @@ int main( int argc, char* argv[] ) {
   TCanvas* c1 = new TCanvas( "c1", "", 600, 600);
   c1->cd();
 
-  TH2D* h2_axes = new TH2D( "axes", "", 10, xmin, xmax, 10, 0., 330. );
+  TH2D* h2_axes = new TH2D( "axes", "", 10, xmin, xmax, 10, 0., 800. );
   h2_axes->SetXTitle( "t (s)" );
   h2_axes->SetYTitle( "Rate (Hz)" );
   h2_axes->Draw("same");
 
 
   TGraphErrors* gr_grap = new TGraphErrors(0);
+  gr_grap->SetName( "graphene" );
   for( unsigned i=0; i<rd_grap.size(); ++i ) 
     addPoints( gr_grap, file_rate, tzero, rd_grap[i].h_i, rd_grap[i].m_i, rd_grap[i].h_f, rd_grap[i].m_f, sFrac_grap[i], rate_cosmics );
 
@@ -255,7 +256,7 @@ int main( int argc, char* argv[] ) {
 
     h2_heatMap->SetBinContent( binx, biny, transp );
 
-    std::cout << "-> Run " << i << " x: " << rd_grap[i].x << " z: " << rd_grap[i].z << " Graphene transparency: " << transp << " +/- " << transp_err << std::endl;
+    std::cout << "-> Run " << rd_grap[i].run_number << " x: " << rd_grap[i].x << " z: " << rd_grap[i].z << " Graphene transparency: " << transp << " +/- " << transp_err << std::endl;
 
   }
 
@@ -264,6 +265,11 @@ int main( int argc, char* argv[] ) {
   h2_heatMap->Draw("colz");
 
   c2->SaveAs( Form("./data/%s/transp_heatMap.pdf", dataset.c_str()) );
+
+  TFile* file = TFile::Open( Form("./data/%s/transp_heatMap.root", dataset.c_str()), "RECREATE" );
+  file->cd();
+  h2_heatMap->Write();
+  file->Close();
 
   return 0;
 
@@ -313,7 +319,7 @@ std::map< int, RunData > getRunMap( const std::string& rundatafile ) {
       rd.m_i = min_i; // min start
       rd.h_f = hour_f; // hour end
       rd.m_f = min_f; // min end
-      //rd.h_i run_number;
+      rd.run_number =  run_number;
 
       if( run_number > 0 ) {
         map_runs[run_number] = rd;
@@ -408,7 +414,7 @@ float get_sFrac( const std::string& dataset, int run, float bg_cut ) {
   TCanvas* c2 = new TCanvas(Form("c2_run%d", run), "", 600, 600 );
   c2->cd();
 
-  float ymax = (histo->GetMaximum()/histo->Integral()<0.01) ? 0.01 : 0.1;
+  float ymax = (histo->GetMaximum()/histo->Integral()<0.05) ? 0.05 : 0.08;
   TH2D* h2_axes = new TH2D( Form("axes_%d", run), "", 10, 0., 0.5, 10, 0., ymax );
   h2_axes->SetYTitle( "Normalized to Unity" );
   h2_axes->SetXTitle( "Amplitude (V)" );
